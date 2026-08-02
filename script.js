@@ -932,6 +932,12 @@ class RendererV2 {
     this.spritesReady = false;
 
     /**
+     * Player-only sprite flag: the heroine is drawn with pixel-art
+     * sprites while the world keeps the procedural painting.
+     */
+    this.playerSpritesReady = false;
+
+    /**
      * Whether to use the new Lighting2D system even in procedural mode.
      * Enable this once you like the lighting look.
      */
@@ -993,8 +999,8 @@ class RendererV2 {
       this.procedural.memory(ctx, mem, cameraX, found.has(mem.id), time);
     }
 
-    // ── 6. Player ────────────────────────────────────────────
-    if (this.spritesReady) {
+    // ── 6. Player ─────────────────────────────────────────────
+    if (this.playerSpritesReady) {
       this._drawSpritePlayer(ctx, player, cameraX, time);
     } else {
       this.procedural.player(player, cameraX, time);
@@ -1036,42 +1042,86 @@ class RendererV2 {
     }
   }
 
-  /* ── Sprite-based player (future) ──────────────────────────── */
+  /* ── Sprite-based player (Sunnyside pixel-art) ─────────────── */
 
   _drawSpritePlayer(ctx, player, cameraX, time) {
-    // When sprites are loaded, this will draw the animated character.
-    // For now, fall back to procedural.
     const key = player.moving ? "walk" : "idle";
-    const frame = this.sprites.getFrame(`char_stella_${key}`, this.animator.getCurrentFrame());
-    if (frame) {
-      const x = Math.round(player.x - cameraX) - 32;
-      const y = Math.round(player.y) - 48 + (player.moving ? Math.sin(time / 75) * 2 : Math.sin(time / 1000) * 0.7);
-      ctx.drawImage(frame, x, y, 64, 96); // 16×24 at 4× scale
-    } else {
-      // Fallback
-      this.procedural.player(player, cameraX, time);
-    }
+    const frameCount = key === "walk" ? 8 : 9;
+    const fps = key === "walk" ? 10 : 6;
+    const index = Math.floor(time / (1000 / fps)) % frameCount;
+    const base = this.sprites.getFrame(`stella_${key}`, index);
+    if (!base) { this.procedural.player(player, cameraX, time); return; }
+
+    // Each frame is 96×64; the character stands near the center with feet at ~y52.
+    const scale = 1.6;
+    const w = 96 * scale, h = 64 * scale;
+    const x = Math.round(player.x - cameraX);
+    const y = Math.round(player.y);
+    const bob = player.moving ? 0 : Math.sin(time / 1000) * 0.7;
+
+    // Ground shadow
+    ctx.fillStyle = "rgba(17,18,32,.25)";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 18, 16, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(x, y + 22 + bob);
+    if (player.face === -1) ctx.scale(-1, 1);
+    ctx.drawImage(base, -w / 2, -h + 10 * scale, w, h);
+    ctx.restore();
   }
 
   /* ── Sprite loading helper ─────────────────────────────────── */
 
   /**
-   * Loads all game assets. Call once at startup.
+   * Loads the player character sprites (base body + hair composited).
+   * The world keeps its hand-painted procedural rendering; only the
+   * heroine becomes a pixel-art sprite.
    * @param {function(number,number):void} [onProgress]
    * @returns {Promise<boolean>} true if sprites loaded successfully
    */
   async loadAssets(onProgress) {
-    // TODO: Enqueue actual sprite paths here when assets are downloaded
-    // Example:
-    // this.sprites.enqueue("tiles", "assets/tilesets/forest/tileset.png", 16, 16);
-    // this.sprites.enqueue("char_stella_walk", "assets/characters/player/stella_walk.png", 16, 24);
+    const sets = [
+      { key: "stella_walk", frames: 8, layers: [
+        "assets/characters/player/char_human_walking_base_walk_strip8.png",
+        "assets/characters/player/char_human_walking_longhair_walk_strip8.png",
+      ] },
+      { key: "stella_idle", frames: 9, layers: [
+        "assets/characters/player/char_human_idle_base_idle_strip9.png",
+        "assets/characters/player/char_human_idle_longhair_idle_strip9.png",
+      ] },
+    ];
 
-    if (this.sprites.total > 0) {
-      await this.sprites.preload(onProgress);
-      this.spritesReady = true;
+    try {
+      let done = 0;
+      const total = sets.reduce((sum, set) => sum + set.layers.length, 0);
+      for (const set of sets) {
+        const images = [];
+        for (const path of set.layers) {
+          const img = await this.sprites.load(`${set.key}__layer${images.length}`, path);
+          images.push(img);
+          done++;
+          if (onProgress) onProgress(done, total);
+        }
+        if (!images[0].width) return false;
+        // Composite body + hair into per-frame canvases
+        const fw = images[0].width / set.frames, fh = images[0].height;
+        for (let i = 0; i < set.frames; i++) {
+          const cvs = document.createElement("canvas");
+          cvs.width = fw; cvs.height = fh;
+          const c = cvs.getContext("2d");
+          c.imageSmoothingEnabled = false;
+          for (const img of images) c.drawImage(img, i * fw, 0, fw, fh, 0, 0, fw, fh);
+          this.sprites.cache.set(`${set.key}_${i}`, cvs);
+        }
+      }
+      this.playerSpritesReady = true;
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }
 }
 
@@ -1104,7 +1154,7 @@ const saved = saver.load();
 const state = {
   running: false, paused: false, time: saved.time ?? .71, cameraX: 0, region: regionAt(0), previousRegion: "",
   found: new Set(saved.memories || []), photos: saved.photos || 0,
-  player: { x: saved.position?.x ?? 150, y: saved.position?.y ?? 540, moving: false, sitting: false },
+  player: { x: saved.position?.x ?? 150, y: saved.position?.y ?? 540, moving: false, sitting: false, face: 1 },
   hero: saved.hero || "", author: saved.author || "",
   finale: { active: false, progress: 0 }, last: 0, saveTimer: 0,
 };
@@ -1141,6 +1191,7 @@ function update(delta) {
     if(input.down("ArrowLeft","KeyA"))dx--;if(input.down("ArrowRight","KeyD"))dx++;
     if(input.down("ArrowUp","KeyW"))dy--;if(input.down("ArrowDown","KeyS"))dy++;
     state.player.moving=!!(dx||dy);
+    if(dx)state.player.face=dx<0?-1:1;
     if(dx||dy){
       const len=Math.hypot(dx,dy);
       state.player.x=clamp(state.player.x+dx/len*182*delta/1000,30,WORLD_WIDTH-30);
