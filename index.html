@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101225" />
+    <meta name="description" content="Stella — uma pequena jornada entre memória, céu e silêncio." />
+    <title>Stella</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="experience" aria-label="Stella, jogo de exploração contemplativa">
+      <canvas id="game" width="1280" height="720" aria-label="Mundo de Stella"></canvas>
+
+      <header class="topbar" aria-label="Controles do jogo">
+        <p class="wordmark">STELLA <span>·</span> <em>uma jornada entre estrelas</em></p>
+        <div class="topbar-actions">
+          <button id="photo-button" class="icon-button" type="button" aria-label="Guardar fotografia (F)" title="Guardar fotografia">◌</button>
+          <button id="sound-button" class="icon-button" type="button" aria-label="Ativar som" title="Ativar som">♪</button>
+        </div>
+      </header>
+
+      <div id="place-name" class="place-name" aria-live="polite"></div>
+      <div id="memory-sigil" class="memory-sigil" aria-label="Constelação de memórias"></div>
+      <div id="interaction" class="interaction" aria-live="polite"></div>
+      <div id="moment" class="moment hidden" aria-live="assertive">
+        <p id="moment-title"></p>
+        <p id="moment-text"></p>
+        <button id="moment-close" type="button">continuar <span>↵</span></button>
+      </div>
+      <div id="toast" class="toast" aria-live="polite"></div>
+
+      <section id="intro" class="opening" aria-labelledby="title">
+        <div class="opening-orbit orbit-one"></div><div class="opening-orbit orbit-two"></div>
+        <p class="eyebrow">UM PEQUENO LUGAR PARA VOLTAR</p>
+        <h1 id="title">Stella</h1>
+        <p class="opening-copy">Uma caminhada sem pressa por paisagens que guardam aquilo que as palavras nem sempre alcançam.</p>
+        <form id="start-form">
+          <label>Nome da viajante<input id="hero-input" maxlength="26" autocomplete="off" placeholder="O nome dela" /></label>
+          <label>Quem escreve a última carta<input id="author-input" maxlength="26" autocomplete="off" placeholder="Seu nome" /></label>
+          <button class="start-button" type="submit">entrar no sonho <span>→</span></button>
+        </form>
+        <p class="opening-hint">CAMINHE COM <b>WASD</b> OU <b>SETAS</b> · APROXIME-SE PARA INTERAGIR · <b>F</b> FOTOGRAFA</p>
+      </section>
+
+      <section id="finale" class="finale hidden" aria-labelledby="finale-phrase">
+        <p class="eyebrow">FIM DE UMA CAMINHADA · COMEÇO DE TANTAS OUTRAS</p>
+        <p id="finale-phrase">Mesmo que o universo seja infinito,<br />ainda encontrei você.</p>
+        <p id="finale-signature"></p>
+        <button id="return-button" class="quiet-button" type="button">voltar ao começo</button>
+      </section>
+
+      <aside class="help" aria-label="Ajuda rápida"><span>F</span> guardar paisagem <i>·</i> <span>Q</span> sentar e observar</aside>
+    </main>
+    <noscript>Stella precisa de JavaScript para funcionar.</noscript>
+    <script type="module" src="src/game-v2.js"></script>
+    <script nomodule src="script.js"></script>
+  </body>
+</html>
